@@ -1,0 +1,438 @@
+
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>墨栖後台管理</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, "Microsoft JhengHei", sans-serif;
+    background: #f5f3f1;
+    color: #333;
+}
+
+header {
+    background: #5c4540;
+    color: white;
+    padding: 20px;
+    text-align: center;
+}
+
+.layout {
+    display: flex;
+    min-height: 85vh;
+}
+
+aside {
+    width: 220px;
+    background: #d8c4b6;
+    padding: 20px;
+}
+
+aside button {
+    display: block;
+    width: 100%;
+    padding: 13px;
+    margin-bottom: 12px;
+    border: none;
+    background: #5c4540;
+    color: white;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+main {
+    flex: 1;
+    padding: 30px;
+}
+
+.card {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px #ddd;
+}
+
+.stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+}
+
+.stats .card {
+    text-align: center;
+}
+
+.stats h2 {
+    color: #a47b6c;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+}
+
+th, td {
+    padding: 12px;
+    border: 1px solid #ddd;
+    text-align: center;
+}
+
+th {
+    background: #d8c4b6;
+}
+
+input {
+    padding: 10px;
+    margin: 5px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+.action {
+    background: #5c4540;
+    color: white;
+    border: none;
+    padding: 9px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.hidden {
+    display: none;
+}
+
+@media(max-width:600px) {
+    .layout {
+        flex-direction: column;
+    }
+
+    aside {
+        width: 100%;
+    }
+
+    main {
+        padding: 12px;
+        overflow-x: auto;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>FASHION STORE</h1>
+    <p>後台管理系統</p>
+</header>
+
+<div class="layout">
+
+<!-- 左側選單 -->
+<aside>
+    <button onclick="showPage('dashboard')">管理首頁</button>
+    <button onclick="showPage('members')">會員管理</button>
+    <button onclick="showPage('products')">商品管理</button>
+    <button onclick="showPage('orders')">訂單管理</button>
+    <button onclick="location.href='index.html'">返回購物前台</button>
+</aside>
+
+<!-- 右側內容 -->
+<main>
+
+<!-- 管理首頁 -->
+<section id="dashboard">
+
+    <h2>管理首頁</h2>
+
+    <div class="stats">
+
+        <div class="card">
+            <h3>會員總數</h3>
+            <h2 id="memberCount">0</h2>
+        </div>
+
+        <div class="card">
+            <h3>商品總數</h3>
+            <h2 id="productCount">4</h2>
+        </div>
+
+        <div class="card">
+            <h3>訂單總數</h3>
+            <h2 id="orderCount">0</h2>
+        </div>
+
+        <div class="card">
+            <h3>銷售總金額</h3>
+            <h2 id="salesCount">$0</h2>
+        </div>
+
+    </div>
+
+    <div class="card">
+        <h3>歡迎使用管理系統</h3>
+        <p>這裡可以管理會員、商品及訂單資料。</p>
+    </div>
+
+</section>
+
+<!-- 會員管理 -->
+<section id="members" class="hidden">
+
+    <h2>會員管理</h2>
+
+    <div class="card">
+        <table>
+            <thead>
+                <tr>
+                    <th>姓名</th>
+                    <th>會員帳號</th>
+                </tr>
+            </thead>
+
+            <tbody id="memberTable">
+                <tr>
+                    <td colspan="2">目前沒有會員資料</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+</section>
+
+<!-- 商品管理 -->
+<section id="products" class="hidden">
+
+    <h2>商品管理</h2>
+
+    <div class="card">
+
+        <h3>新增商品</h3>
+
+        <input id="productName" placeholder="商品名稱">
+
+        <input id="productPrice" type="number"
+        placeholder="商品價格" min="1">
+
+        <button class="action" onclick="addProduct()">
+            新增商品
+        </button>
+
+    </div>
+
+    <div class="card">
+
+        <h3>商品清單</h3>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>商品名稱</th>
+                    <th>價格</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+
+            <tbody id="productTable"></tbody>
+        </table>
+
+    </div>
+
+</section>
+
+<!-- 訂單管理 -->
+<section id="orders" class="hidden">
+
+    <h2>訂單管理</h2>
+
+    <div class="card">
+
+        <table>
+            <thead>
+                <tr>
+                    <th>收件人</th>
+                    <th>電話</th>
+                    <th>收件地址</th>
+                    <th>付款方式</th>
+                    <th>訂單金額</th>
+                </tr>
+            </thead>
+
+            <tbody id="orderTable">
+                <tr>
+                    <td colspan="5">目前沒有訂單</td>
+                </tr>
+            </tbody>
+        </table>
+
+    </div>
+
+</section>
+
+</main>
+</div>
+
+<script>
+
+// 示範資料
+let members = [];
+
+let products = [
+    {name:"簡約白色上衣",price:490},
+    {name:"休閒牛仔褲",price:890},
+    {name:"氣質百褶裙",price:690},
+    {name:"韓系休閒外套",price:1290}
+];
+
+let orders = [];
+
+// 切換管理頁面
+function showPage(page) {
+
+    let pages = [
+        "dashboard",
+        "members",
+        "products",
+        "orders"
+    ];
+
+    pages.forEach(function(id) {
+        document.getElementById(id).classList.add("hidden");
+    });
+
+    document.getElementById(page).classList.remove("hidden");
+
+    updateData();
+}
+
+// 更新資料
+function updateData() {
+
+    document.getElementById("memberCount").textContent = members.length;
+
+    document.getElementById("productCount").textContent = products.length;
+
+    document.getElementById("orderCount").textContent = orders.length;
+
+    let sales = orders.reduce(function(sum, order) {
+        return sum + order.total;
+    }, 0);
+
+    document.getElementById("salesCount").textContent = "$" + sales;
+
+    // 會員表格
+    let memberHTML = "";
+
+    members.forEach(function(member) {
+        memberHTML += `
+            <tr>
+                <td>${escapeHTML(member.name)}</td>
+                <td>${escapeHTML(member.account)}</td>
+            </tr>
+        `;
+    });
+
+    document.getElementById("memberTable").innerHTML =
+        memberHTML || '<tr><td colspan="2">目前沒有會員資料</td></tr>';
+
+    // 商品表格
+    let productHTML = "";
+
+    products.forEach(function(product,index) {
+        productHTML += `
+            <tr>
+                <td>${escapeHTML(product.name)}</td>
+                <td>$${product.price}</td>
+                <td>
+                    <button class="action"
+                    onclick="deleteProduct(${index})">刪除</button>
+                </td>
+            </tr>
+        `;
+    });
+
+    document.getElementById("productTable").innerHTML = productHTML;
+
+    // 訂單表格
+    let orderHTML = "";
+
+    orders.forEach(function(order) {
+        orderHTML += `
+            <tr>
+                <td>${escapeHTML(order.receiver)}</td>
+                <td>${escapeHTML(order.phone)}</td>
+                <td>${escapeHTML(order.address)}</td>
+                <td>${escapeHTML(order.payment)}</td>
+                <td>$${order.total}</td>
+            </tr>
+        `;
+    });
+
+    document.getElementById("orderTable").innerHTML =
+        orderHTML || '<tr><td colspan="5">目前沒有訂單</td></tr>';
+}
+
+// 防止輸入內容被當作 HTML
+function escapeHTML(value) {
+    return String(value).replace(/[&<>"']/g, function(char) {
+        return {
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#39;"
+        }[char];
+    });
+}
+
+// 新增商品
+function addProduct() {
+
+    let name = document.getElementById("productName").value.trim();
+
+    let price = Number(document.getElementById("productPrice").value);
+
+    if (!name || !Number.isFinite(price) || price <= 0) {
+        alert("請輸入正確的商品名稱及價格！");
+        return;
+    }
+
+    products.push({
+        name: name,
+        price: price
+    });
+
+    document.getElementById("productName").value = "";
+    document.getElementById("productPrice").value = "";
+
+    updateData();
+
+    alert("商品新增成功！");
+}
+
+// 刪除商品
+function deleteProduct(index) {
+
+    if (confirm("確定要刪除此商品嗎？")) {
+
+        products.splice(index,1);
+
+        updateData();
+    }
+}
+
+updateData();
+
+</script>
+
+</body>
+</html>
