@@ -82,7 +82,7 @@ footer{text-align:center;color:#85766e;padding:30px}
     <div id="productList" class="grid"></div>
   </section>
 <div class="product" data-category="上衣" data-name="簡約黑色上衣">
-    <img src="images/black.jpg" alt="黑色上衣"
+    <img src="images/black one.jpg" alt="黑色上衣"
 >
     <h3>簡約黑色上衣</h3>
     <p class="price">$490</p>
@@ -92,7 +92,7 @@ footer{text-align:center;color:#85766e;padding:30px}
     <img src="images/jean.jpg" alt="休閒牛仔褲">
     <h3>休閒牛仔褲</h3>
     <p class="price">$890</p>
-    <button onclick="addCart('休閒長褲',890)">加入購物車</button>
+    <button onclick="addCart('休閒牛仔褲',890)">加入購物車</button>
 </DIV>
 <div class="product" data-category="裙子" data-name="百褶裙">
     <img src="images/skirt.jpg" alt="百褶裙">
@@ -125,7 +125,7 @@ footer{text-align:center;color:#85766e;padding:30px}
         <div><label>收件人</label><input id="receiver" required></div>
         <div><label>聯絡電話（10碼數字）</label><input id="phone" required inputmode="numeric" maxlength="10" pattern="[0-9]{10}" placeholder="請輸入10碼電話"></div>
         <div><label>收件地址</label><input id="address" required></div>
-        <div><label>付款方式</label><select id="payment" required><option value="">請選擇</option><option>貨到付款</option><option>銀行轉帳</option><option>信用卡</option></select></div>
+        <div><label>付款方式</label><select id="payment" required><option value="">請選擇</option><option>貨到付款</option></select></div>
       </div>
       <label>訂單備註</label><textarea id="note" rows="3"></textarea>
       <button type="submit">確認送出訂單</button>
@@ -161,11 +161,45 @@ const ACCOUNT_DOMAIN = "@moxi-demo.com";
 let currentUser = null;
 let currentProfile = null;
 let cart = [];
+function money(value){
+  return Number(value || 0).toLocaleString("zh-TW");
+}
+
+function renderCart(){
+  const box = document.getElementById("cartItems");
+  box.replaceChildren();
+
+  if(cart.length === 0){
+    box.textContent = "目前尚未選購商品";
+  } else {
+    cart.forEach((item, index) => {
+      const row = document.createElement("p");
+      row.textContent = `${item.name}　$${money(item.price)}　`;
+
+      const remove = document.createElement("button");
+      remove.className = "secondary";
+      remove.textContent = "移除";
+
+      remove.addEventListener("click", () => {
+        cart.splice(index, 1);
+        renderCart();
+      });
+
+      row.append(remove);
+      box.append(row);
+    });
+  }
+
+  document.getElementById("cartTotal").textContent =
+    money(cart.reduce((sum, item) => sum + item.price, 0));
+}
+
+
 let products = [];
 
 function authEmail(account){ return account.trim().toLowerCase() + ACCOUNT_DOMAIN; }
 function escapeText(value){ return String(value ?? ""); }
-function money(value){ return Number(value || 0).toLocaleString("zh-TW"); }
+
 
 async function loadProfile(user){
   const {data,error} = await supabase.from("profiles").select("id,name,account,role").eq("id",user.id).single();
@@ -244,42 +278,19 @@ async function loadProducts(){
 }
 function addToCart(p){
   cart.push({id:p.id,name:p.name,price:Number(p.price)});
-  renderCart();
-}
-function openProductDetail(p){
-  const dialog=document.getElementById("productDialog");
-  const content=document.getElementById("productDetailContent");
-  content.replaceChildren();
+  renderCart();}
+// 提供 HTML 商品按鈕呼叫
+// 提供 HTML 商品按鈕呼叫
+window.addCart = function(name, price) {
+  cart.push({
+    id: null,
+    name: name,
+    price: Number(price)
+  });
 
-  if(p.image_url){
-    const img=document.createElement("img");
-    img.className="detail-image";img.src=p.image_url;img.alt=p.name;
-    content.append(img);
-  }
-  const title=document.createElement("h2");
-  title.id="detailName";title.textContent=p.name;
-  const price=document.createElement("p");
-  price.className="price";price.textContent="$"+money(p.price);
-  const description=document.createElement("p");
-  description.textContent=p.description||"目前沒有商品介紹。";
-  const actions=document.createElement("div");actions.className="detail-actions";
-  const addBtn=document.createElement("button");addBtn.textContent="加入購物車";
-  addBtn.addEventListener("click",()=>{addToCart(p);dialog.close();});
-  actions.append(addBtn);
-  content.append(title,price,description,actions);
-  dialog.showModal();
-}
-function renderCart(){
-  const box=document.getElementById("cartItems");box.replaceChildren();
-  if(!cart.length){box.textContent="目前尚未選購商品";}else{
-    cart.forEach((item,index)=>{
-      const row=document.createElement("p");row.textContent=`${item.name}　$${money(item.price)}　`;
-      const remove=document.createElement("button");remove.className="secondary";remove.textContent="移除";
-      remove.addEventListener("click",()=>{cart.splice(index,1);renderCart();});row.append(remove);box.append(row);
-    });
-  }
-  document.getElementById("cartTotal").textContent=money(cart.reduce((s,p)=>s+p.price,0));
-}
+  renderCart();
+  alert(name + " 已加入購物車！");
+};
 async function checkout(event){
   event.preventDefault();
   if(!currentUser){message("請先登入會員再結帳。",true);document.getElementById("member").scrollIntoView();return;}
@@ -318,7 +329,16 @@ async function loadMyOrders(){
 document.getElementById("registerForm").addEventListener("submit",register);
 document.getElementById("loginForm").addEventListener("submit",login);
 document.getElementById("logoutBtn").addEventListener("click",logout);
-document.getElementById("checkoutBtn").addEventListener("click",()=>document.getElementById("checkout").scrollIntoView({behavior:"smooth"}));
+document.getElementById("checkoutBtn").addEventListener("click", function() {
+  if (cart.length === 0) {
+    message("購物車目前沒有商品，請先選購商品。", true);
+    return;
+  }
+
+  document.getElementById("checkout").scrollIntoView({
+    behavior: "smooth"
+  });
+});
 document.getElementById("closeProductDialog").addEventListener("click",()=>document.getElementById("productDialog").close());
 document.getElementById("productDialog").addEventListener("click",(event)=>{
   if(event.target===document.getElementById("productDialog")) document.getElementById("productDialog").close();
@@ -337,6 +357,70 @@ supabase.channel("frontend-live")
   .on("postgres_changes",{event:"*",schema:"public",table:"orders"},()=>loadMyOrders())
   .on("postgres_changes",{event:"*",schema:"public",table:"products"},()=>loadProducts())
   .subscribe();
+</script>
+<script>
+window.moxiCart = window.moxiCart || [];
+
+function addCart(name, price) {
+    window.moxiCart.push({
+        name: name,
+        price: Number(price)
+    });
+
+    const cartItems = document.getElementById("cartItems");
+    const cartTotal = document.getElementById("cartTotal");
+
+    cartItems.innerHTML = "";
+
+    let total = 0;
+
+    window.moxiCart.forEach((item, index) => {
+        total += item.price;
+
+        const row = document.createElement("p");
+        row.textContent = item.name + " $" + item.price + " ";
+
+        const removeBtn = document.createElement("button");
+        removeBtn.textContent = "移除";
+
+        removeBtn.onclick = function() {
+            window.moxiCart.splice(index, 1);
+            addCartRefresh();
+        };
+
+        row.appendChild(removeBtn);
+        cartItems.appendChild(row);
+    });
+
+    cartTotal.textContent = total.toLocaleString("zh-TW");
+}
+
+function addCartRefresh() {
+    const cartItems = document.getElementById("cartItems");
+    const cartTotal = document.getElementById("cartTotal");
+
+    cartItems.innerHTML = "";
+    let total = 0;
+
+    window.moxiCart.forEach((item, index) => {
+        total += item.price;
+
+        const row = document.createElement("p");
+        row.textContent = item.name + " $" + item.price + " ";
+
+        const removeBtn = document.createElement("button");
+        removeBtn.textContent = "移除";
+        removeBtn.onclick = function() {
+            window.moxiCart.splice(index, 1);
+            addCartRefresh();
+        };
+
+        row.appendChild(removeBtn);
+        cartItems.appendChild(row);
+    });
+
+    cartTotal.textContent = total.toLocaleString("zh-TW");
+}
 </script>
 </body>
 </html>
