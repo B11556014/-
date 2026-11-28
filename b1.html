@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>墨栖服飾｜管理後台</title>
+<style>
+:root{--brown:#5c4540;--cream:#f8f5f2;--accent:#b58c78;--ink:#342d2a;--line:#e7ddd6}
+*{box-sizing:border-box}body{margin:0;background:var(--cream);color:var(--ink);font-family:Arial,"Microsoft JhengHei",sans-serif}
+header{background:var(--brown);color:#fff;padding:22px 5%;display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap}
+header h1{margin:0;font-size:25px;letter-spacing:2px}main{max-width:1200px;margin:26px auto;padding:0 18px}
+.panel{background:#fff;padding:22px;border-radius:13px;margin:18px 0;box-shadow:0 3px 14px #4a30200d}
+h2{color:var(--brown);margin-top:0}input,select,textarea{width:100%;padding:10px;border:1px solid #d9cec7;border-radius:7px;margin:6px 0 13px;font:inherit}
+label{font-weight:600}button{background:var(--brown);color:white;border:0;border-radius:7px;padding:10px 15px;cursor:pointer}
+button.danger{background:#a44747}button.light{background:#eee;color:#342d2a}
+.formgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.tablewrap{overflow-x:auto}table{width:100%;border-collapse:collapse;min-width:700px}th,td{padding:11px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{background:#f4eee9;color:var(--brown)}
+.statgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}.stat{background:#f4eee9;padding:15px;border-radius:9px}.stat strong{display:block;font-size:24px;margin-top:6px}
+#dashboard[hidden],#loginPanel[hidden]{display:none}.muted{color:#776b65;font-size:13px}
+</style>
+</head>
+<body>
+<header><h1>墨栖服飾｜管理後台</h1><span>獨立管理系統</span></header>
+<main>
+<section class="panel" id="loginPanel">
+  <h2>管理員登入</h2>
+  <form id="adminLogin">
+    <label>管理員帳號</label><input id="adminAccount" required pattern="[A-Za-z0-9]+" autocomplete="username">
+    <label>管理員密碼</label><input id="adminPassword" type="password" required autocomplete="current-password">
+    <button type="submit">登入後台</button>
+  </form>
+  <p class="muted">此頁面只允許資料庫中 role = admin 的帳戶進入。一般會員無法查看後台資料。</p>
+  <p id="loginMessage" role="status"></p>
+</section>
+
+<section id="dashboard" hidden>
+  <section class="panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+      <div><h2>管理總覽</h2><p id="adminWelcome"></p></div>
+      <button class="light" id="logout">登出後台</button>
+    </div>
+    <div class="statgrid">
+      <div class="stat">會員總數<strong id="memberCount">0</strong></div>
+      <div class="stat">商品總數<strong id="productCount">0</strong></div>
+      <div class="stat">訂單總數<strong id="orderCount">0</strong></div>
+      <div class="stat">訂單總額<strong id="salesTotal">$0</strong></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>商品管理</h2>
+    <form id="productForm">
+      <input id="editProductId" type="hidden">
+      <div class="formgrid">
+        <div><label>商品名稱</label><input id="productName" required></div>
+        <div><label>價格</label><input id="productPrice" type="number" min="0" step="1" required></div>
+        <div><label>分類</label><input id="productCategory" placeholder="上衣／褲子／裙子"></div>
+        <div><label>圖片網址（可留空）</label><input id="productImage" type="url" placeholder="https://..."></div>
+      </div>
+      <label>商品介紹</label><textarea id="productDescription" rows="2"></textarea>
+      <button type="submit" id="saveProduct">新增商品</button>
+      <button type="button" class="light" id="cancelEdit">取消編輯</button>
+    </form>
+    <div class="tablewrap"><table><thead><tr><th>商品</th><th>分類</th><th>價格</th><th>上架</th><th>操作</th></tr></thead><tbody id="productsBody"></tbody></table></div>
+  </section>
+
+  <section class="panel">
+    <h2>會員管理</h2>
+    <div class="tablewrap"><table><thead><tr><th>姓名</th><th>會員帳號</th><th>註冊時間</th></tr></thead><tbody id="membersBody"></tbody></table></div>
+  </section>
+
+  <section class="panel">
+    <h2>訂單管理</h2>
+    <p class="muted">修改訂單狀況後，會員前台會同步顯示最新狀態。</p>
+    <div class="tablewrap"><table><thead><tr><th>訂單編號</th><th>會員帳號</th><th>收件人</th><th>電話</th><th>商品</th><th>金額</th><th>付款</th><th>成立時間</th><th>狀態</th></tr></thead><tbody id="ordersBody"></tbody></table></div>
+  </section>
+</section>
+</main>
+<script type="module">
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+import { SUPABASE_URL, SUPABASE_KEY } from "./config.js";
+const msg=(text,bad=false)=>{const el=document.getElementById("loginMessage");el.textContent=text;el.style.color=bad?"#b42318":"#39734b";};
+const ready=SUPABASE_URL.startsWith("https://")&&!SUPABASE_URL.includes("請貼上")&&!SUPABASE_KEY.includes("請貼上");
+if(!ready){msg("尚未設定 Supabase URL 與 Publishable key，請先完成設定。",true);throw new Error("Supabase config missing");}
+const supabase=createClient(SUPABASE_URL,SUPABASE_KEY);
+const ACCOUNT_DOMAIN="@moxi-demo.com";
+let adminUser=null;
+let productsCache=[];
+let ordersCache=[];
+const esc=(s)=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const money=n=>Number(n||0).toLocaleString("zh-TW");
+async function profileFor(user){
+ const {data,error}=await supabase.from("profiles").select("id,name,account,role").eq("id",user.id).single();
+ if(error)throw error;return data;
+}
+async function login(e){
+ e.preventDefault();const account=document.getElementById("adminAccount").value.trim();const password=document.getElementById("adminPassword").value;
+ if(!/^[A-Za-z0-9]+$/.test(account)){msg("帳號格式錯誤。",true);return;}
+ const {data,error}=await supabase.auth.signInWithPassword({email:account.toLowerCase()+ACCOUNT_DOMAIN,password});
+ if(error){msg("登入失敗，請確認帳密。",true);return;}
+ try{
+  const profile=await profileFor(data.user);
+  if(profile.role!=="admin"){await supabase.auth.signOut();msg("此帳號沒有管理員權限。",true);return;}
+  adminUser=data.user;document.getElementById("loginPanel").hidden=true;document.getElementById("dashboard").hidden=false;
+  document.getElementById("adminWelcome").textContent=`管理員：${profile.name}（${profile.account}）`;
+  await refreshAll();subscribeLive();msg("");
+ }catch(err){await supabase.auth.signOut();msg("無法驗證管理員權限："+err.message,true);}
+}
+async function logout(){await supabase.auth.signOut();adminUser=null;document.getElementById("dashboard").hidden=true;document.getElementById("loginPanel").hidden=false;}
+async function refreshAll(){await Promise.all([loadProducts(),loadMembers(),loadOrders()]);}
+async function loadProducts(){
+ const {data,error}=await supabase.from("products").select("*").order("created_at",{ascending:false});
+ if(error){console.error(error);return;}productsCache=data||[];
+ document.getElementById("productCount").textContent=productsCache.length;
+ const body=document.getElementById("productsBody");body.innerHTML="";
+ for(const p of productsCache){
+  const tr=document.createElement("tr");
+  tr.innerHTML=`<td>${esc(p.name)}</td><td>${esc(p.category||"")}</td><td>$${money(p.price)}</td><td>${p.active?"上架中":"已下架"}</td><td><button class="light" data-edit="${p.id}">編輯</button> <button class="danger" data-delete="${p.id}">刪除</button></td>`;
+  body.append(tr);
+ }
+ body.querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click",()=>editProduct(b.dataset.edit)));
+ body.querySelectorAll("[data-delete]").forEach(b=>b.addEventListener("click",()=>deleteProduct(b.dataset.delete)));
+}
+async function loadMembers(){
+ const {data,error}=await supabase.from("profiles").select("id,name,account,created_at").order("created_at",{ascending:false});
+ if(error){console.error(error);return;}
+ document.getElementById("memberCount").textContent=(data||[]).length;
+ const body=document.getElementById("membersBody");body.innerHTML="";
+ (data||[]).forEach(m=>{const tr=document.createElement("tr");tr.innerHTML=`<td>${esc(m.name)}</td><td>${esc(m.account)}</td><td>${m.created_at?new Date(m.created_at).toLocaleString("zh-TW"):"—"}</td>`;body.append(tr);});
+}
+async function loadOrders(){
+ const {data,error}=await supabase.from("orders").select("*").order("created_at",{ascending:false});
+ if(error){console.error(error);return;}ordersCache=data||[];
+ document.getElementById("orderCount").textContent=ordersCache.length;
+ document.getElementById("salesTotal").textContent="$"+money(ordersCache.filter(o=>o.status!=="已取消").reduce((s,o)=>s+Number(o.total||0),0));
+ const body=document.getElementById("ordersBody");body.innerHTML="";
+ const statuses=["處理中","已確認","出貨中","已送達","已取消"];
+ ordersCache.forEach(o=>{
+  const tr=document.createElement("tr");
+  const itemText=(o.items||[]).map(i=>`${i.name} $${money(i.price)}`).join("、");
+  tr.innerHTML=`<td>${o.id.slice(0,8).toUpperCase()}</td><td>${esc(o.member_account||"")}</td><td>${esc(o.receiver)}</td><td>${esc(o.phone)}</td><td>${esc(itemText)}</td><td>$${money(o.total)}</td><td>${esc(o.payment)}</td><td>${new Date(o.created_at).toLocaleString("zh-TW")}</td><td><select data-status="${o.id}">${statuses.map(s=>`<option ${o.status===s?"selected":""}>${s}</option>`).join("")}</select></td>`;
+  body.append(tr);
+ });
+ body.querySelectorAll("[data-status]").forEach(sel=>sel.addEventListener("change",()=>updateStatus(sel.dataset.status,sel.value)));
+}
+async function updateStatus(id,status){
+ const {error}=await supabase.from("orders").update({status}).eq("id",id);
+ if(error){alert("更新失敗："+error.message);return;}
+ await loadOrders();
+}
+function clearProductForm(){document.getElementById("productForm").reset();document.getElementById("editProductId").value="";document.getElementById("saveProduct").textContent="新增商品";}
+function editProduct(id){
+ const p=productsCache.find(x=>x.id===id);if(!p)return;
+ document.getElementById("editProductId").value=p.id;document.getElementById("productName").value=p.name;
+ document.getElementById("productPrice").value=p.price;document.getElementById("productCategory").value=p.category||"";
+ document.getElementById("productImage").value=p.image_url||"";document.getElementById("productDescription").value=p.description||"";
+ document.getElementById("saveProduct").textContent="儲存修改";document.getElementById("productForm").scrollIntoView({behavior:"smooth"});
+}
+async function saveProduct(e){
+ e.preventDefault();const id=document.getElementById("editProductId").value;
+ const row={name:document.getElementById("productName").value.trim(),price:Number(document.getElementById("productPrice").value),
+ category:document.getElementById("productCategory").value.trim(),image_url:document.getElementById("productImage").value.trim()||null,
+ description:document.getElementById("productDescription").value.trim(),active:true};
+ const result=id?await supabase.from("products").update(row).eq("id",id):await supabase.from("products").insert(row);
+ if(result.error){alert("儲存失敗："+result.error.message);return;}
+ clearProductForm();await loadProducts();
+}
+async function deleteProduct(id){
+ if(!confirm("確定要刪除此商品？"))return;
+ const {error}=await supabase.from("products").delete().eq("id",id);
+ if(error){alert("刪除失敗："+error.message);return;}await loadProducts();
+}
+function subscribeLive(){
+ supabase.channel("admin-live")
+ .on("postgres_changes",{event:"*",schema:"public",table:"orders"},()=>{loadOrders();})
+ .on("postgres_changes",{event:"*",schema:"public",table:"profiles"},()=>{loadMembers();})
+ .on("postgres_changes",{event:"*",schema:"public",table:"products"},()=>{loadProducts();})
+ .subscribe();
+}
+document.getElementById("adminLogin").addEventListener("submit",login);
+document.getElementById("logout").addEventListener("click",logout);
+document.getElementById("productForm").addEventListener("submit",saveProduct);
+document.getElementById("cancelEdit").addEventListener("click",clearProductForm);
+const {data:{session}}=await supabase.auth.getSession();
+if(session){
+ try{const profile=await profileFor(session.user);if(profile.role==="admin"){adminUser=session.user;document.getElementById("loginPanel").hidden=true;document.getElementById("dashboard").hidden=false;document.getElementById("adminWelcome").textContent=`管理員：${profile.name}`;await refreshAll();subscribeLive();}}
+ catch(e){}
+}
+</script>
+</body>
+</html>
